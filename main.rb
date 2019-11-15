@@ -1,39 +1,164 @@
 class CSSParser
 
-	def toDark(hexColor)
+	@@flag = "\0"
+
+	def to_dark(hexColor)
 	
 	end
 
-	def parseColor(color)
+	def parse_color(color)
 		# if rgb(a)
 		# if hsl(a)
 		# if hex
 	end
 	
-	def parseBorder(text)
+	def parse_border(text)
 	
 	end
 	
-	def parseBoxShadow(text)
+	def parse_box_shadow(text)
 	
 	end
 	
-	def findColor(text)
+	def find_color(text)
 
 	end
+	
+	def parse_bglock(text)
+	
+	end
+	
+	def is_whitespace(c)
+		return c == " " || c == "\t" || c == "\n" || c == "\r" || c == "\f"
+	end
+	
+	def zero_spaces_until(text, pos, condition_callback)
+		until pos >= text.bytesize || condition_callback.call(text[pos])
+			if is_whitespace(text[pos])
+				text[pos] = @@flag
+			end
+			pos += 1
+		end
+		return pos
+	end
+	
+	def zero_prefix_spaces(text, pos)
+		while pos < text.bytesize && is_whitespace(text[pos])
+			text[pos] = @@flag
+			pos += 1
+		end
+		return pos
+	end
+	
+	def trim_spaces_until(text, pos, condition_callback)
+		w_count = 0
+		until pos >= text.bytesize || condition_callback.call(text[pos])
+			if is_whitespace(text[pos])
+				w_count += 1
+				if w_count > 1
+					text[pos] = @@flag
+				end
+			else
+				w_count = 0
+			end
+			pos += 1
+		end
 
-	def parse(text)
-		# look for {
-		# parse looking for colored things
-		# keys (contains word color) or background, box-shadow, border
-		# call color switcher
-		# note that @media things can have nested
-		# brackets
-		# return to top when } found
+		# don't keep last space
+		if w_count > 0
+			text[pos - w_count] = @@flag 
+		end
+		return pos
 	end
 
+	def trim_spaces_until_with_comma(text, pos, condition_callback)
+		test_ch = text[pos]
+		while pos < text.bytesize && condition_callback.call(test_ch)
+			pos = trim_spaces_until(text, pos,
+					lambda { |c| c == ',' || condition_callback.call(c)})
+			test_ch = text[pos]
+			pos += 1
+			pos = zero_prefix_spaces(text, pos)
+		end
+		return pos
+	end
 
+	def shift(text)
+		left_pos = 0
+		right_pos = 0
+		while right_pos < text.bytesize
+			while text[right_pos] == @@flag 
+				right_pos += 1
+			end
+			text[left_pos] = text[right_pos]
+			left_pos += 1
+			right_pos += 1
+		end
+		text.slice!(left_pos, right_pos)
+	end
+	
+	def strip_whitespace(text)
+		i = 0
+		while i < text.bytesize
+			if text[i] == '@'
+				i = trim_spaces_until_with_comma(text, i, lambda { |c| c == '{'})
+				i += 1
+			else
+				i = zero_prefix_spaces(text, i)
+				# now we should be at a selector, so keep 1st whitespace
+				i = trim_spaces_until_with_comma(text, i, lambda { |c| c == '{'})
+				
+				# now we should be inside the block of rules
+				while i < text.bytesize && text[i] != '}'
+					i = zero_spaces_until(text, i, lambda { |c| c == ':'})
+					# space before value
+					i = zero_prefix_spaces(text, i + 1)
+					# need the '}' since last ';' is not required
+					# keep spaces between value thingies for shorthand setters
+					i = trim_spaces_until_with_comma(text, i, lambda { |c| c == ';' || c == '}'})
+				end
+				i = zero_prefix_spaces(text, i + 1)
+			end
+		end
+		shift(text)
+	end
+
+	def strip_comments(text)
+		# TODO - this
+		shift(text)
+	end
+
+	def parse(text, i=0)
+		while i < text.bytesize
+			# if @media, @keyframes, adn others
+			if text[i] == '@'
+				i = text.index('{', i) + 1
+			elsif text[i] == '{'
+				block_end = text.index('}', i)
+				while i < block_end
+					i = text.index(':', i)
+					val_end = text.index(';', i)
+				end
+					
+				i = block_end
+				# parse looking for colored things
+				# keys (contains word color) or background, box-shadow, border
+				# call color switcher
+				# note that @media things can have nested
+				# brackets
+				# return to top when } found
+			else
+				i += 1
+			end
+		end
+	end
+	
 end
 
 if __FILE__ == $0
-	# main thingy aqui
+	# test whitespace stripper
+	text = IO.read("super.css")
+	print(text)
+	CSSParser.new.strip_whitespace(text)
+	print(text)
+end

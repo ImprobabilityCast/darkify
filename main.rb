@@ -124,13 +124,27 @@ class CSSParser
 	end
 
 	def strip_comments(text)
-		# TODO - this
-		shift(text)
+		i = text.index("/*", 0)
+		while i != nil
+			j = text.index("*/", i)
+			if j == nil
+				j = text.bytesize
+			else
+				j += 1
+			end
+			text.slice!(i..j);
+			i = text.index("/*", i)
+		end
+	end
+
+	def minify(text)
+		strip_comments(text)
+		strip_whitespace(text)
 	end
 
 	def parse(text, i=0)
 		while i < text.bytesize
-			# if @media, @keyframes, adn others
+			# if @media, @keyframes, and others
 			if text[i] == '@'
 				i = text.index('{', i) + 1
 			elsif text[i] == '{'
@@ -157,8 +171,9 @@ end
 
 if __FILE__ == $0
 	# test whitespace stripper
+	# TODO - make this test more & be more automated
 	text = IO.read("super.css")
 	print(text)
-	CSSParser.new.strip_whitespace(text)
+	CSSParser.new.minify(text)
 	print(text)
 end

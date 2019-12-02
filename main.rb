@@ -10,6 +10,7 @@ class CSSParser
 		# if rgb(a)
 		# if hsl(a)
 		# if hex
+		# if color
 	end
 	
 	def parse_border(text)
@@ -29,7 +30,7 @@ class CSSParser
 	end
 	
 	def is_whitespace(c)
-		return c == " " || c == "\t" || c == "\n" || c == "\r" || c == "\f"
+		c == " " || c == "\t" || c == "\n" || c == "\r" || c == "\f"
 	end
 	
 	def zero_spaces_until(text, pos, condition_callback)
@@ -39,7 +40,7 @@ class CSSParser
 			end
 			pos += 1
 		end
-		return pos
+		pos
 	end
 	
 	def zero_prefix_spaces(text, pos)
@@ -47,7 +48,7 @@ class CSSParser
 			text[pos] = @@flag
 			pos += 1
 		end
-		return pos
+		pos
 	end
 	
 	def trim_spaces_until(text, pos, condition_callback)
@@ -68,7 +69,7 @@ class CSSParser
 		if w_count > 0
 			text[pos - w_count] = @@flag 
 		end
-		return pos
+		pos
 	end
 
 	def trim_spaces_until_with_comma(text, pos, condition_callback)
@@ -80,7 +81,7 @@ class CSSParser
 			pos += 1
 			pos = zero_prefix_spaces(text, pos)
 		end
-		return pos
+		pos
 	end
 
 	def shift(text)
@@ -95,6 +96,7 @@ class CSSParser
 			right_pos += 1
 		end
 		text.slice!(left_pos, right_pos)
+		nil
 	end
 	
 	def strip_whitespace(text)
@@ -135,36 +137,43 @@ class CSSParser
 			text.slice!(i..j);
 			i = text.index("/*", i)
 		end
+		nil
 	end
 
 	def minify(text)
 		strip_comments(text)
 		strip_whitespace(text)
+		nil
 	end
 
-	def parse(text, i=0)
+	def parse(text)
+		i = 0
 		while i < text.bytesize
 			# if @media, @keyframes, and others
 			if text[i] == '@'
 				i = text.index('{', i) + 1
-			elsif text[i] == '{'
-				block_end = text.index('}', i)
-				while i < block_end
+			else
+				i = text.index('{', i) + 1
+				# now we should be inside the block of rules
+				while i < text.bytesize && text[i] != '}'
 					i = text.index(':', i)
 					val_end = text.index(';', i)
-				end
+					val_end2 = text.index('}', i)
+					if val_end < val_end2
+						
+					else
 					
-				i = block_end
+					end
+				end
 				# parse looking for colored things
 				# keys (contains word color) or background, box-shadow, border
 				# call color switcher
 				# note that @media things can have nested
 				# brackets
 				# return to top when } found
-			else
-				i += 1
 			end
 		end
+		nil
 	end
 	
 end

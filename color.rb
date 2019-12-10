@@ -2,36 +2,21 @@ class Color
 
     # Should work with all CSS3 color strings with no whitespace
     def initialize(str)
-        if str.start_with?("rgb(")
-            colors = parse_rgb(str)
-            from_rgb!(colors)
-            @alpha = 1.0
-        elsif str.start_with?("rgba(")
-            colors = parse_rgb(str)
-            from_rgb!(colors)
-            idx = str.rindex(',') + 1
-            @alpha = str.slice(idx..-1).to_f
-        elsif str.start_with?("hsl(")
-            colors = parse_hsl(str)
-            from_hsl!(colors)
-            @alpha = 1.0
-        elsif str.start_with?("hsla(")
-            colors = parse_hsl(str)
-            from_hsl!(colors)
-            idx = str.rindex(',') + 1
-            @alpha = str.slice(idx..-1).to_f
+        if str.start_with?("rgb")
+            from_rgb_str!(str)
+        elsif str.start_with?("hsl")
+            from_hsl_str!(str)
         elsif str.start_with?("#")
             from_hex!(str)
         else # assume named color
             from_named_color!(str)
         end
-
     end
 
     def to_s
         "hsla(" + @hue.round(2).to_s + ", " +
-            (@sat * 100).round(2).to_s + "%, " +
-            (@light * 100).round(2).to_s + "%, " +
+            @sat.round(2).to_s + "%, " +
+            @light.round(2).to_s + "%, " +
             @alpha.round(2).to_s + ")"
     end
 
@@ -187,59 +172,68 @@ class Color
         "yellowgreen" => "#9ACD32"
     }.freeze # prevent any subclasses from modifying it
 
-    private def parse_rgb(c)
+    private def parse_color_fn(c)
         old_idx = c.index('(') + 1
         idx = c.index(',', old_idx)
-        red = c.slice(old_idx..idx).to_i
+        red = c[old_idx..idx]
 
         old_idx = idx + 1
         idx = c.index(',', old_idx)
-        green = c.slice(old_idx..idx).to_i
+        green = c[old_idx..idx]
 
         old_idx = idx + 1
-        blue = c.slice(old_idx..-1).to_i
+        idx = c.index(',', old_idx)
+        blue = c[old_idx..-1]
 
-        [red, green, blue]
+        alpha = idx == nil ? 1.0 : c[(idx + 1)..-1].to_f
+
+        # CSS4 compatibility - alpha channel can be a percent
+        if alpha > 1.000001 then alpha /= 100.0 end
+
+        [red, green, blue, alpha]
     end
 
     private def parse_hsl(c)
-        old_idx = c.index('(') + 1
-        idx = c.index(',', old_idx)
-        hue = c.slice(old_idx..idx).to_i
-
-        old_idx = idx + 1
-        idx = c.index('%', old_idx)
-        sat = c.slice(old_idx..idx).to_f / 100.0
-
-        old_idx = idx + 2
-        light = c.slice(old_idx..-1).to_f / 100.0
-
-        [hue, sat, light]
+        hue, sat, light, alpha = parse_color_fn(c)
+        [hue.to_f, sat.to_f, light.to_f, alpha]
     end
 
     private def parse_short_hex(c, radix)
         factor = radix + 1
+
         red = c[1].to_i(radix) * factor
         green = c[2].to_i(radix) * factor
         blue = c[3].to_i(radix) * factor
-        [red, green, blue]
+         # Alpha channels in hex are in CSS4 draft at the time of writing,
+        # but they are supported by most browsers.
+        alpha = c.length == 5 ? c[4].to_i(radix) * factor / 255.0 : 1.0
+
+        [red, green, blue, alpha]
     end
 
     private def parse_long_hex(c, radix)
         red = c[1..2].to_i(radix)
         green = c[3..4].to_i(radix)
         blue = c[5..6].to_i(radix)
-        [red, green, blue]
+        alpha = c.length == 9 ? c[7..8].to_i(radix) / 255.0 : 1.0
+
+        [red, green, blue, alpha]
     end
 
-    private def from_rgb!(colors)
+    private def from_rgb_str!(c)
+        red, green, blue, alpha = parse_color_fn(c)
+        from_rgb_arr!([red.to_i, green.to_i, blue.to_i, alpha])
+    end
+
+    private def from_rgb_arr!(colors)
+        @alpha = colors.pop
+
         max_col = colors.max
         min_col = colors.min
-
-        @light = (max_col + min_col) / 510.0 # 510 = 255 * 2
+        @light = 100.0 * (max_col + min_col) / 510 # 510 = 255 * 2
 
         delta = max_col - min_col
-        @sat =  1.0 * delta / (max_col + min_col)
+        @sat =  100.0 * delta / (max_col + min_col)
 
         max_idx = colors.index(max_col)
 
@@ -254,31 +248,30 @@ class Color
                 * (60.0 / delta) + 120 * max_idx + 360) % 360
         end
 
+        # Pretend that I didn't modify colors
+        colors.push(@alpha)
         nil
     end
 
-    private def from_hsl!(colors)
-        @hue, @sat, @light = colors
+    private def from_hsl_str!(c)
+        from_hsl_arr!(parse_hsl(c))
+        nil
+    end
+
+    private def from_hsl_arr!(colors)
+        @hue, @sat, @light, @alpha = colors
         nil
     end
 
     private def from_hex!(c)
         radix = 16
 
-        # Alpha channels in hex are in CSS4 draft at the time of writing,
-        # but they are supported by most browsers.
-        colors = if c.length >= 7 # long hex
-            @alpha = c.length == 9 ? c[7..8].to_i(radix) / 255.0 : 1.0
+        colors = if c.length >= 7
             parse_long_hex(c, radix)
-        else # short hex
-            @alpha = if c.length == 5
-                c[4].to_i(radix) * (radix + 1) / 255.0
-            else
-                1.0
-            end
+        else
             parse_short_hex(c, radix)
         end
-        from_rgb!(colors)
+        from_rgb_arr!(colors)
         nil
     end
 
@@ -300,4 +293,6 @@ if __FILE__ == $0
     print("#{Color.new("blue")}\n")
     print("#{Color.new("BlUe")}\n")
     print("#{Color.new("goldenrod")}\n")
+    print("#{Color.new("rgb(123,12,65,0.4)")}\n")
+    print("#{Color.new("rgb(123,12,65,40%)")}\n")
 end

@@ -37,7 +37,12 @@ class Color
 
     end
 
-    def parse_rgb(c)
+    def to_s
+        "hsla(" + @hue.to_s + ", " + (@sat * 100).to_s + "%, " +
+            (@light * 100).to_s + "%, " + @alpha.to_s + ")"
+    end
+
+    private def parse_rgb(c)
         old_idx = c.index('(') + 1
         idx = c.index(',', old_idx)
         red = c.slice(old_idx..idx).to_i
@@ -52,7 +57,7 @@ class Color
         [red, green, blue]
     end
 
-    def parse_hsl(c)
+    private def parse_hsl(c)
         old_idx = c.index('(') + 1
         idx = c.index(',', old_idx)
         hue = c.slice(old_idx..idx).to_i
@@ -67,7 +72,7 @@ class Color
         [hue, sat, light]
     end
 
-    def from_rgb!(colors)
+    private def from_rgb!(colors)
         max_col = colors.max
         min_col = colors.min
 
@@ -92,19 +97,20 @@ class Color
         nil
     end
 
-    def from_hsl!(colors)
+    private def from_hsl!(colors)
         @hue, @sat, @light = colors
     end
 
-    def from_named_color!(c)
+    private def from_named_color!(c)
 
     end
 
-    def from_hex!(c)
+    private def from_hex!(c)
 
     end
+
 end
 
 if __FILE__ == $0
-    print(Color.new("hsla(123,50%,72%,0.2)").parse_hsl("hsl(123,50%,72%)"))
+    print(Color.new("hsla(123,50%,72%,0.2)"))
 end

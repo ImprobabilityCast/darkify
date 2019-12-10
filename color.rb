@@ -17,14 +17,20 @@ class Color
         elsif str.start_with?("rgba(")
             colors = parse_rgb(str)
             from_rgb!(colors)
-            idx = str.rindex(',')
-            @alpha = str.slice(idx + 1, str.bytesize - (idx + 3)).to_f
+            idx = str.rindex(',') + 1
+            @alpha = str.slice(idx..-1).to_f
         elsif str.start_with?("hsl(")
-
+            colors = parse_hsl(str)
+            from_hsl!(colors)
+            @alpha = 1.0
         elsif str.start_with?("hsla(")
-
+            colors = parse_hsl(str)
+            from_hsl!(colors)
+            idx = str.rindex(',') + 1
+            @alpha = str.slice(idx..-1).to_f
         elsif str.start_with?("#")
-
+            # valid string lengths 4, 5, 7, 9
+            
         else # assume named color
 
         end
@@ -41,11 +47,24 @@ class Color
         green = c.slice(old_idx..idx).to_i
 
         old_idx = idx + 1
-        idx = c.index(',', old_idx)
-        idx = idx == nil ? c.index(')', old_idx) : idx
-        blue = c.slice(old_idx..idx).to_i
+        blue = c.slice(old_idx..-1).to_i
 
         [red, green, blue]
+    end
+
+    def parse_hsl(c)
+        old_idx = c.index('(') + 1
+        idx = c.index(',', old_idx)
+        hue = c.slice(old_idx..idx).to_i
+
+        old_idx = idx + 1
+        idx = c.index('%', old_idx)
+        sat = c.slice(old_idx..idx).to_f / 100.0
+
+        old_idx = idx + 2
+        light = c.slice(old_idx..-1).to_f / 100.0
+
+        [hue, sat, light]
     end
 
     def from_rgb!(colors)
@@ -70,11 +89,11 @@ class Color
                 * (60.0 / delta) + 120 * max_idx
         end
 
-        #nil
+        nil
     end
 
-    def from_hsl!(c)
-
+    def from_hsl!(colors)
+        @hue, @sat, @light = colors
     end
 
     def from_named_color!(c)
@@ -87,5 +106,5 @@ class Color
 end
 
 if __FILE__ == $0
-    print(Color.new("rgba(12,0,255,0.23)").from_rgb!([25,32,2]))
+    print(Color.new("hsla(123,50%,72%,0.2)").parse_hsl("hsl(123,50%,72%)"))
 end

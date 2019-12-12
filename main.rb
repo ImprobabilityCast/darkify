@@ -1,188 +1,75 @@
-class CSSParser
-
-	@@flag = "\0"
-
-	def to_dark(hexColor)
-	
-	end
-
-	def parse_color(color)
-		# if rgb(a)
-		# if hsl(a)
-		# if hex
-		# if color
-	end
-	
-	def parse_border(text)
-	
-	end
-	
-	def parse_box_shadow(text)
-	
-	end
-	
-	def find_color(text)
-
-	end
-	
-	def parse_bglock(text)
-	
-	end
-	
-	def is_whitespace(c)
-		c == " " || c == "\t" || c == "\n" || c == "\r" || c == "\f"
-	end
-	
-	def zero_spaces_until(text, pos, condition_callback)
-		until pos >= text.bytesize || condition_callback.call(text[pos])
-			if is_whitespace(text[pos])
-				text[pos] = @@flag
-			end
-			pos += 1
-		end
-		pos
-	end
-	
-	def zero_prefix_spaces(text, pos)
-		while pos < text.bytesize && is_whitespace(text[pos])
-			text[pos] = @@flag
-			pos += 1
-		end
-		pos
-	end
-	
-	def trim_spaces_until(text, pos, condition_callback)
-		w_count = 0
-		until pos >= text.bytesize || condition_callback.call(text[pos])
-			if is_whitespace(text[pos])
-				w_count += 1
-				if w_count > 1
-					text[pos] = @@flag
-				end
-			else
-				w_count = 0
-			end
-			pos += 1
-		end
-
-		# don't keep last space
-		if w_count > 0
-			text[pos - w_count] = @@flag 
-		end
-		pos
-	end
-
-	def trim_spaces_until_with_comma(text, pos, condition_callback)
-		test_ch = text[pos]
-		while pos < text.bytesize && condition_callback.call(test_ch)
-			pos = trim_spaces_until(text, pos,
-					lambda { |c| c == ',' || condition_callback.call(c)})
-			test_ch = text[pos]
-			pos += 1
-			pos = zero_prefix_spaces(text, pos)
-		end
-		pos
-	end
-
-	def shift(text)
-		left_pos = 0
-		right_pos = 0
-		while right_pos < text.bytesize
-			while text[right_pos] == @@flag 
-				right_pos += 1
-			end
-			text[left_pos] = text[right_pos]
-			left_pos += 1
-			right_pos += 1
-		end
-		text.slice!(left_pos, right_pos)
-		nil
-	end
-	
-	def strip_whitespace(text)
+class CSSTheme
+	def darkify(text)
+		text_arr = []
 		i = 0
 		while i < text.bytesize
-			if text[i] == '@'
-				i = trim_spaces_until_with_comma(text, i, lambda { |c| c == '{'})
-				i += 1
-			else
-				i = zero_prefix_spaces(text, i)
-				# now we should be at a selector, so keep 1st whitespace
-				i = trim_spaces_until_with_comma(text, i, lambda { |c| c == '{'})
-				
-				# now we should be inside the block of rules
-				while i < text.bytesize && text[i] != '}'
-					i = zero_spaces_until(text, i, lambda { |c| c == ':'})
-					# space before value
-					i = zero_prefix_spaces(text, i + 1)
-					# need the '}' since last ';' is not required
-					# keep spaces between value thingies for shorthand setters
-					i = trim_spaces_until_with_comma(text, i, lambda { |c| c == ';' || c == '}'})
-				end
-				i = zero_prefix_spaces(text, i + 1)
-			end
-		end
-		shift(text)
-	end
+			prev_i = i
+			i = text.index('{', i)
+			text_arr.push(text[prev_i..i])
+			i += 1
 
-	def strip_comments(text)
-		i = text.index("/*", 0)
-		while i != nil
-			j = text.index("*/", i)
-			if j == nil
-				j = text.bytesize
-			else
-				j += 1
-			end
-			text.slice!(i..j);
-			i = text.index("/*", i)
-		end
-		nil
-	end
-
-	def minify(text)
-		strip_comments(text)
-		strip_whitespace(text)
-		nil
-	end
-
-	def parse(text)
-		i = 0
-		while i < text.bytesize
 			# if @media, @keyframes, and others
-			if text[i] == '@'
-				i = text.index('{', i) + 1
-			else
-				i = text.index('{', i) + 1
+			if text[i] != '@'
 				# now we should be inside the block of rules
 				while i < text.bytesize && text[i] != '}'
-					i = text.index(':', i)
-					val_end = text.index(';', i)
-					val_end2 = text.index('}', i)
-					if val_end < val_end2
-						
+					# get property
+					prop_end = text.index(':', i)
+					text_arr.push(text[i..prop_end])
+					prop = text[i..(prop_end - 1)]
+					prop_end += 1
+
+					# get value
+					val_end = text.index(';', prop_end)
+					val_end2 = text.index('}', val_end)
+					val = if val_end == nil || val_end2 < val_end
+						text[prop_end..(val_end2 - 1)]
 					else
-					
+						text[prop_end..(val_end - 1)]
 					end
+
+					# if possible, change color
+					i = prop_end + val.length
+					if @@color_props.has_key(prop)
+						text_arr.push(@@color_props[prop].call(val))
+					else
+						text_arr.push(val)
+					end
+					text_arr.push(text[i])
 				end
-				# parse looking for colored things
-				# keys (contains word color) or background, box-shadow, border
-				# call color switcher
-				# note that @media things can have nested
-				# brackets
-				# return to top when } found
 			end
 		end
-		nil
+		text_arr.join
 	end
-	
+
+	# Things that can have color:
+	# https://developer.mozilla.org/en-US/docs/Web/HTML/Applying_color#Things_that_can_have_color
+	@@color_props = {
+		"color" => Proc.new,
+		"background" => Proc.new,
+		"background-color" => Proc.new,
+		"border" => Proc.new,
+		"border-color" => Proc.new,
+		"border-left" => Proc.new,
+		"border-top" => Proc.new,
+		"border-right" => Proc.new,
+		"border-bottom" => Proc.new,
+		"border-left-color" => Proc.new,
+		"border-top-color" => Proc.new,
+		"border-right-color" => Proc.new,
+		"border-bottom-color" => Proc.new,
+		"text-shadow" => Proc.new,
+		"text-decoration" => Proc.new,
+		"text-decoration-color" => Proc.new,
+		"text-emphasis" => Proc.new,
+		"text-emphasis-color" => Proc.new,
+		"caret-color" => Proc.new,
+		"column-rule" => Proc.new,
+		"column-rule-color" => Proc.new,
+		"outline" => Proc.new,
+		"outline-color" => Proc.new,
+	}.freeze
 end
 
 if __FILE__ == $0
-	# test whitespace stripper
-	# TODO - make this test more & be more automated
-	text = IO.read("super.css")
-	print(text)
-	CSSParser.new.minify(text)
-	print(text)
+
 end

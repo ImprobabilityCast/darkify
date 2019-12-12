@@ -14,10 +14,14 @@ class Color
     end
 
     def to_s
-        "hsla(" + @hue.round(2).to_s + ", " +
-            @sat.round(2).to_s + "%, " +
-            @light.round(2).to_s + "%, " +
-            @alpha.round(2).to_s + ")"
+        "hsla(" << @hue.round(2).to_s << ", " <<
+            @sat.round(2).to_s << "%, " <<
+            @light.round(2).to_s << "%, " <<
+            @alpha.round(2).to_s << ")"
+    end
+
+    def invert_light!
+        @light = 100 - @light
     end
 
     # Using hex strings because it's convenient.
@@ -254,12 +258,7 @@ class Color
     end
 
     private def from_hsl_str!(c)
-        from_hsl_arr!(parse_hsl(c))
-        nil
-    end
-
-    private def from_hsl_arr!(colors)
-        @hue, @sat, @light, @alpha = colors
+        @hue, @sat, @light, @alpha = parse_hsl(c)
         nil
     end
 

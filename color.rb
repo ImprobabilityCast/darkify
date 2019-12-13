@@ -20,8 +20,18 @@ class Color
             @alpha.round(2).to_s << ")"
     end
 
-    def invert_light!
+    def to_inv_s
         @light = 100 - @light
+        inv_s = to_s
+        @light = 100 - @light # restore @light
+        inv_s
+    end
+
+    # is probably a color
+    def self.is_color?(color)
+        @@color_table.has_key?(color) || color.start_with?("#") ||
+            color.start_with?("rgb(") || color.start_with?("rgba(") ||
+            color.start_with?("hsl(") || color.start_with?("hsla(")
     end
 
     # Using hex strings because it's convenient.
@@ -146,6 +156,7 @@ class Color
         "plum" => "#DDA0DD",
         "powderblue" => "#B0E0E6",
         "purple" => "#800080",
+        "rebeccapurple" => "#663399",
         "red" => "#FF0000",
         "rosybrown" => "#BC8F8F",
         "royalblue" => "#4169E1",
@@ -167,6 +178,7 @@ class Color
         "teal" => "#008080",
         "thistle" => "#D8BFD8",
         "tomato" => "#FF6347",
+        "transparent" => "#0000",
         "turquoise" => "#40E0D0",
         "violet" => "#EE82EE",
         "wheat" => "#F5DEB3",
@@ -237,7 +249,7 @@ class Color
         @light = 100.0 * (max_col + min_col) / 510 # 510 = 255 * 2
 
         delta = max_col - min_col
-        @sat =  100.0 * delta / (max_col + min_col)
+        @sat = (max_col + min_col) == 0 ? 0.0 : 100.0 * delta / (max_col + min_col)
 
         max_idx = colors.index(max_col)
 

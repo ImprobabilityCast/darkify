@@ -113,9 +113,11 @@ class Minify
 			while text[right_pos] == @@flag 
 				right_pos += 1
 			end
-			text[left_pos] = text[right_pos]
-			left_pos += 1
-			right_pos += 1
+			if right_pos < text.bytesize
+				text[left_pos] = text[right_pos]
+				left_pos += 1
+				right_pos += 1
+			end
 		end
 		text.slice!(left_pos, right_pos)
 		nil
@@ -125,8 +127,7 @@ end
 if __FILE__ == $0
 	# test whitespace stripper
 	# TODO - make this test more & be more automated
-	text = IO.read("super.css")
-	print(text)
+	text = IO.read("proton_theme.css")
     Minify.minify(text)
     print(text)
 end

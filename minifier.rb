@@ -1,32 +1,33 @@
-class Minify
+class Minifier
 
-	def self.strip_whitespace(text)
+	def self.strip_whitespace!(text)
 		i = 0
 		while i < text.bytesize
 			if text[i] == '@'
-				i = trim_spaces_until_with_comma(text, i, lambda { |c| c == '{'})
+				i = trim_spaces_until_with_comma!(text, i, lambda { |c| c == '{'})
 				i += 1
 			else
-				i = zero_prefix_spaces(text, i)
+				i = zero_prefix_spaces!(text, i)
 				# now we should be at a selector, so keep 1st whitespace
-				i = trim_spaces_until_with_comma(text, i, lambda { |c| c == '{'})
+				i = trim_spaces_until_with_comma!(text, i, lambda { |c| c == '{'})
 				
 				# now we should be inside the block of rules
 				while i < text.bytesize && text[i] != '}'
-					i = zero_spaces_until(text, i, lambda { |c| c == ':'})
+					i = zero_spaces_until!(text, i, lambda { |c| c == ':'})
 					# space before value
-					i = zero_prefix_spaces(text, i + 1)
+					i = zero_prefix_spaces!(text, i + 1)
 					# need the '}' since last ';' is not required
 					# keep spaces between value thingies for shorthand setters
-					i = trim_spaces_until_with_comma(text, i, lambda { |c| c == ';' || c == '}'})
+					i = trim_spaces_until_with_comma!(text, i, lambda { |c| c == ';' || c == '}'})
 				end
-				i = zero_prefix_spaces(text, i + 1)
+				i = zero_prefix_spaces!(text, i + 1)
 			end
 		end
-		shift(text)
+		shift!(text)
+		nil
 	end
 
-	def self.strip_comments(text)
+	def self.strip_comments!(text)
 		i = text.index("/*", 0)
 		while i != nil
 			j = text.index("*/", i)
@@ -41,9 +42,9 @@ class Minify
 		nil
 	end
 
-	def self.minify(text)
-		strip_comments(text)
-		strip_whitespace(text)
+	def self.minify!(text)
+		strip_comments!(text)
+		strip_whitespace!(text)
 		nil
     end
     
@@ -51,13 +52,13 @@ class Minify
 
     private_class_method :new # prevent this class from being initialized
 
-    private_class_method def self.is_whitespace(c)
+    private_class_method def self.is_whitespace?(c)
 		c == " " || c == "\t" || c == "\n" || c == "\r" || c == "\f"
 	end
 	
-	private_class_method def self.zero_spaces_until(text, pos, condition_callback)
+	private_class_method def self.zero_spaces_until!(text, pos, condition_callback)
 		until pos >= text.bytesize || condition_callback.call(text[pos])
-			if is_whitespace(text[pos])
+			if is_whitespace?(text[pos])
 				text[pos] = @@flag
 			end
 			pos += 1
@@ -65,18 +66,18 @@ class Minify
 		pos
 	end
 	
-	private_class_method def self.zero_prefix_spaces(text, pos)
-		while pos < text.bytesize && is_whitespace(text[pos])
+	private_class_method def self.zero_prefix_spaces!(text, pos)
+		while pos < text.bytesize && is_whitespace?(text[pos])
 			text[pos] = @@flag
 			pos += 1
 		end
 		pos
 	end
 	
-	private_class_method def self.trim_spaces_until(text, pos, condition_callback)
+	private_class_method def self.trim_spaces_until!(text, pos, condition_callback)
 		w_count = 0
 		until pos >= text.bytesize || condition_callback.call(text[pos])
-			if is_whitespace(text[pos])
+			if is_whitespace?(text[pos])
 				w_count += 1
 				if w_count > 1
 					text[pos] = @@flag
@@ -94,19 +95,19 @@ class Minify
 		pos
 	end
 
-	private_class_method def self.trim_spaces_until_with_comma(text, pos, condition_callback)
+	private_class_method def self.trim_spaces_until_with_comma!(text, pos, condition_callback)
 		test_ch = text[pos]
 		while pos < text.bytesize && condition_callback.call(test_ch)
-			pos = trim_spaces_until(text, pos,
+			pos = trim_spaces_until!(text, pos,
 					lambda { |c| c == ',' || condition_callback.call(c)})
 			test_ch = text[pos]
 			pos += 1
-			pos = zero_prefix_spaces(text, pos)
+			pos = zero_prefix_spaces!(text, pos)
 		end
 		pos
 	end
 
-	private_class_method def self.shift(text)
+	private_class_method def self.shift!(text)
 		left_pos = 0
 		right_pos = 0
 		while right_pos < text.bytesize
@@ -128,6 +129,6 @@ if __FILE__ == $0
 	# test whitespace stripper
 	# TODO - make this test more & be more automated
 	text = IO.read("proton_theme.css")
-    Minify.minify(text)
+    Minifier.minify!(text)
     print(text)
 end

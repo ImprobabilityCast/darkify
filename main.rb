@@ -8,58 +8,69 @@ class CSSTheme
 		while i < text.bytesize
 			prev_i = i
 			i = text.index('{', i)
+			if i == nil
+				i = text.bytesize - 1
+			end
 			text_arr.push(text[prev_i..i])
 			i += 1
 
 			# if not @media, @keyframes, and others
-			if text[prev_i] != '@'
+			if i < text.bytesize && text[prev_i] != '@'
 				# now we should be inside the block of rules
-				while i < text.bytesize && text[i] != '}'
+				color_count = 0
+				while i < text.bytesize
 					# get property
 					prop_end = text.index(':', i)
-					text_arr.push(text[i..prop_end])
 					prop = text[i..(prop_end - 1)]
 					prop_end += 1
 
 					# get value
 					val_end = text.index(';', prop_end)
-					val_end2 = text.index('}', val_end)
-					val = if val_end == nil || val_end2 < val_end
-						text[prop_end..(val_end2 - 1)]
-					else
-						text[prop_end..(val_end - 1)]
+					val_end2 = text.index('}', prop_end)
+					if val_end == nil || val_end2 < val_end
+						val_end = val_end2
 					end
+					val = text[prop_end..(val_end - 1)]
+					i = val_end
 
-					# if possible, change color
-					i = prop_end + val.length
-					text_arr.push(
-						if is_simple_color_prop(prop)
-							find_color(val)
-						elsif prop == "background"
-							bg_val(val)
-						else
-							val
-						end
-					)
+					new_val = process_pair(prop, val)
+					text_arr.push(prop)
+					text_arr.push(':')
+					text_arr.push(new_val)
 					text_arr.push(text[i])
+					color_count += 1
 					i += 1
+					# leave loop if at end of block
+					break if text[i] == '}' || text[i - 1] == '}'
 				end
-				if i < text.bytesize
-					text_arr.push(text[i])
-					i += 1
-				end
+				#if text_arr[-1] != '}' then text_arr.push('}') end
 			end
 		end
 		text_arr.join
 	end
 
+	private_class_method def self.process_pair(prop, val)
+		if is_simple_color_prop(prop)
+			find_color(val)
+		elsif prop == "background"
+			val #bg_val(val)
+		else
+			val
+		end
+	end
+
 	private_class_method def self.find_color(val_str)
 		vals = val_str.split(" ")
 		vals.each_index { |a|
-			vals[a] = if Color.is_color?(vals[a])
-				Color.new(vals[a]).to_inv_s
+			imp = vals[a].rindex("!important")
+			current = if imp != nil
+				[vals[a][0..(imp-1)], "!important"]
 			else
-				vals[a]
+				[vals[a]]
+			end
+			if Color.is_color?(current[0])
+				current[0] = Color.new(current[0]).to_inv_s
+				vals[a] = current.join
 			end
 		}.join(" ")
 	end
@@ -112,13 +123,12 @@ class CSSTheme
 		# https://developer.mozilla.org/en-US/docs/Web/HTML/Applying_color#Things_that_can_have_color
 		prop.end_with?("color") || prop.start_with?("border") ||
 			prop.start_with?("text") || prop == "column-rule" ||
-			prop == "outline"
+			prop == "outline" || prop == "box-shadow"
 	end
 end
 
 if __FILE__ == $0
-	text = IO.read("lightStyle.css")
-	print(text)
+	text = IO.read(ARGF.argv[0])
 	Minifier.minify!(text)
 	print(CSSTheme.darkify(text))
 end

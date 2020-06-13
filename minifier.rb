@@ -3,25 +3,25 @@ class Minifier
 	def self.strip_whitespace!(text)
 		i = 0
 		while i < text.bytesize
-			if text[i] == '@'
-				i = trim_spaces_until_with_comma!(text, i, lambda { |c| c == '{'})
-				i += 1
+			i = zero_prefix_spaces!(text, i)
+			if text[i] == '@' # need single spaces between elements outside of '()'
+				i = trim_spaces_until_with_seps!(text, i, lambda { |c| c == '{' || c == ';'})
 			else
-				i = zero_prefix_spaces!(text, i)
+				i = zero_prefix_spaces!(text, i + 1)
 				# now we should be at a selector, so keep 1st whitespace
-				i = trim_spaces_until_with_comma!(text, i, lambda { |c| c == '{'})
-				
+				i = trim_spaces_until_with_seps!(text, i, lambda { |c| c == '{'})
+
 				# now we should be inside the block of rules
 				while i < text.bytesize && text[i] != '}'
 					i = zero_spaces_until!(text, i, lambda { |c| c == ':'})
-					# space before value
-					i = zero_prefix_spaces!(text, i + 1)
+					i += 1
 					# need the '}' since last ';' is not required
 					# keep spaces between value thingies for shorthand setters
-					i = trim_spaces_until_with_comma!(text, i, lambda { |c| c == ';' || c == '}'})
+					i = trim_spaces_until_with_seps!(text, i, lambda { |c| c == ';' || c == '}'})
+					if text[i] == ';' then i += 1 end
 				end
-				i = zero_prefix_spaces!(text, i + 1)
 			end
+			i += 1
 		end
 		shift!(text)
 		nil
@@ -95,16 +95,16 @@ class Minifier
 		pos
 	end
 
-	private_class_method def self.trim_spaces_until_with_comma!(text, pos, condition_callback)
+	private_class_method def self.trim_spaces_until_with_seps!(text, pos, condition_callback)
 		test_ch = text[pos]
-		while pos < text.bytesize && condition_callback.call(test_ch)
+		until pos >= text.bytesize || condition_callback.call(test_ch)
+			pos = zero_prefix_spaces!(text, pos)
 			pos = trim_spaces_until!(text, pos,
-					lambda { |c| c == ',' || condition_callback.call(c)})
+					lambda { |c| c == ',' || c == ':' || condition_callback.call(c)})
 			test_ch = text[pos]
 			pos += 1
-			pos = zero_prefix_spaces!(text, pos)
 		end
-		pos
+		pos - 1
 	end
 
 	private_class_method def self.shift!(text)
@@ -126,9 +126,7 @@ class Minifier
 end
 
 if __FILE__ == $0
-	# test whitespace stripper
-	# TODO - make this test more & be more automated
-	text = IO.read("proton_theme.css")
-    Minifier.minify!(text)
-    print(text)
+	text = IO.read(ARGV[0])
+	Minifier.minify!(text)
+	print(text)
 end
